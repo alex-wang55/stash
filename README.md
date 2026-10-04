@@ -1,6 +1,13 @@
 # stash
 
+[![tests](https://github.com/alex-wang55/stash/actions/workflows/tests.yml/badge.svg)](https://github.com/alex-wang55/stash/actions/workflows/tests.yml)
+
 A personal place for links and notes: paste a URL, it fetches the title for you, you tag it, and you find it later. It runs on one AWS Lambda function and one DynamoDB table, chosen so it fits inside AWS's always-free tier.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshot-dark.png">
+  <img alt="stash showing saved links grouped by date, with a tag sidebar on the left and a capture box at the top" src="docs/screenshot-light.png">
+</picture>
 
 The optional add-on is an AI agent built with Google's Agent Development Kit (ADK). It runs in a Docker container on Lambda and answers questions like "what did I save about DynamoDB last month?" by searching your stash.
 
@@ -76,6 +83,8 @@ Run the tests:
 ```bash
 pytest
 ```
+
+GitHub Actions runs the same suite and lints both templates on Python 3.13 for every push and pull request ([workflow](.github/workflows/tests.yml)).
 
 The agent tests need `pip install -r agent/requirements.txt` and are skipped otherwise. They run the real ADK runner, the real tools and the real stash API end to end, with only the LLM replaced by a scripted fake, so they need no API key.
 
