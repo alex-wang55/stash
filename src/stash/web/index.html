@@ -303,6 +303,13 @@ a.title:visited { color: var(--ink-2); }
 .note.clamped { cursor: zoom-in; }
 .note.open { -webkit-line-clamp: unset; cursor: zoom-out; }
 .excerpt { font-size: 14px; color: var(--ink-3); -webkit-line-clamp: 2; }
+div.title a, .note a, .excerpt a {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: var(--rule-strong);
+  text-underline-offset: 3px;
+}
+div.title a:hover, .note a:hover, .excerpt a:hover { color: var(--accent); text-decoration-color: currentColor; }
 .side { grid-column: 2; grid-row: 1 / span 4; text-align: right; display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
 .side time { font: 12px/1.9 var(--mono); color: var(--ink-3); white-space: nowrap; }
 .actions { display: flex; gap: 12px; opacity: 0; transition: opacity .12s; }
@@ -598,6 +605,15 @@ const looksLikeUrl = (s) =>
   /^https?:\/\/\S+$/i.test(s) || /^(www\.)?[a-z0-9-]+(\.[a-z0-9-]+)*\.[a-z]{2,}(\/\S*)?$/i.test(s);
 const parseTags = (s) =>
   [...new Set(s.split(/[,\s]+/).map((t) => t.replace(/^#+/, "").toLowerCase()).filter(Boolean))];
+const URL_IN_TEXT = /https?:\/\/[^\s<>"']+/gi;
+
+// Drop sentence punctuation after a URL, but keep a ")" that closes a "(" inside it (Wikipedia links).
+function trimUrl(url) {
+  while (/[.,;:!?'"\]]$/.test(url) || (url.endsWith(")") && url.split("(").length < url.split(")").length)) {
+    url = url.slice(0, -1);
+  }
+  return url;
+}
 
 function terms() { return state.q.toLowerCase().split(/\s+/).filter(Boolean); }
 
@@ -613,6 +629,22 @@ function highlight(text, words) {
     last = m.index + m[0].length;
   }
   frag.append(text.slice(last));
+  return frag;
+}
+
+function richText(text, words) {
+  const frag = document.createDocumentFragment();
+  if (!text) return frag;
+  let last = 0;
+  for (const m of text.matchAll(URL_IN_TEXT)) {
+    const url = trimUrl(m[0]);
+    frag.append(
+      highlight(text.slice(last, m.index), words),
+      el("a", { href: url, target: "_blank", rel: "noopener noreferrer" }, highlight(url, words)),
+    );
+    last = m.index + url.length;
+  }
+  frag.append(highlight(text.slice(last), words));
   return frag;
 }
 
@@ -806,7 +838,7 @@ function renderItem(item, index) {
 
   const titleNode = href
     ? el("a", { class: "title", href, target: "_blank", rel: "noopener noreferrer" }, highlight(shownTitle, words))
-    : el("div", { class: "title" }, highlight(shownTitle, words));
+    : el("div", { class: "title" }, richText(shownTitle, words));
 
   const meta = el(
     "div",
@@ -859,14 +891,15 @@ function renderItem(item, index) {
   );
 
   if (note) {
-    const p = el("p", { class: "note" }, highlight(note, words));
-    p.addEventListener("click", () => {
+    const p = el("p", { class: "note" }, richText(note, words));
+    p.addEventListener("click", (e) => {
+      if (e.target.closest("a")) return;
       if (p.classList.contains("clamped") || p.classList.contains("open")) p.classList.toggle("open");
     });
     li.append(p);
     requestAnimationFrame(() => p.classList.toggle("clamped", p.scrollHeight > p.clientHeight + 1));
   } else if (item.excerpt) {
-    li.append(el("p", { class: "excerpt" }, highlight(item.excerpt, words)));
+    li.append(el("p", { class: "excerpt" }, richText(item.excerpt, words)));
   }
   return li;
 }
@@ -1079,8 +1112,35 @@ function moveSelection(delta) {
 
 // ---------- capture ----------
 
+// One URL at the start or end of a line makes a link; the rest of that line (or the first
+// line, when the URL has a line to itself) is the title, and any other lines are the note.
+function parseCapture(raw) {
+  const text = raw.trim();
+  if (looksLikeUrl(text)) return { kind: "link", url: text, title: "", note: "" };
+  const found = text.match(URL_IN_TEXT) || [];
+  if (found.length !== 1) return { kind: "note", note: text };
+
+  const lines = text.split("\n").map((l) => l.trim());
+  const at = lines.findIndex((l) => l.includes(found[0]));
+  if (!lines[at].startsWith(found[0]) && !lines[at].endsWith(found[0])) return { kind: "note", note: text };
+
+  const clean = (s) => s.replace(/^[\s\-–—:|•·]+|[\s\-–—:|•·]+$/g, "").replace(/\s+/g, " ");
+  const leftover = clean(lines[at].replace(found[0], " "));
+  const others = lines.filter((_, i) => i !== at);
+  let title = "";
+  let noteLines = others;
+  if (leftover) title = leftover;
+  else if (at > 0) { title = clean(others[0]); noteLines = others.slice(1); }
+  return {
+    kind: "link",
+    url: trimUrl(found[0]),
+    title: title.slice(0, 300),
+    note: noteLines.join("\n").replace(/\n{3,}/g, "\n\n").trim(),
+  };
+}
+
 function captureKind() {
-  return looksLikeUrl($("#cap-main").value.trim()) ? "link" : "note";
+  return parseCapture($("#cap-main").value).kind;
 }
 
 function syncCapture() {
@@ -1102,10 +1162,13 @@ async function submitCapture(e) {
   if (!text) { main.focus(); return; }
 
   const body = { tags: parseTags(tagsInput.value) };
-  if (captureKind() === "link") {
-    body.url = text;
-    if (noteInput.value.trim()) body.note = noteInput.value.trim();
-    if (state.popup?.title && state.popup.url === text) body.title = state.popup.title;
+  const parsed = parseCapture(text);
+  if (parsed.kind === "link") {
+    body.url = parsed.url;
+    const note = [parsed.note, noteInput.value.trim()].filter(Boolean).join("\n\n");
+    if (note) body.note = note;
+    if (parsed.title) body.title = parsed.title;
+    else if (state.popup?.title && state.popup.url === parsed.url) body.title = state.popup.title;
   } else {
     body.note = [text, noteInput.value.trim()].filter(Boolean).join("\n\n");
   }
@@ -1117,7 +1180,7 @@ async function submitCapture(e) {
     placeholder = el(
       "li",
       { class: "item pending" },
-      el("div", null, el("div", { class: "title" }, text.replace(/^https?:\/\/(www\.)?/, "")), el("div", { class: "meta" })),
+      el("div", null, el("div", { class: "title" }, body.url.replace(/^https?:\/\/(www\.)?/, "")), el("div", { class: "meta" })),
     );
     $("#items").prepend(placeholder);
     $("#empty").hidden = true;

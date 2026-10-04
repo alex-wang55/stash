@@ -8,3 +8,6 @@ samconfig.toml
 
 # Local copy of the deployed API key
 .secrets/
+
+# Machine-specific preview server config (points at a local virtualenv)
+.claude/launch.json
