@@ -1,0 +1,37 @@
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      # Keep in step with `Runtime` in template.yaml and the agent's Dockerfile base image.
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: |
+            requirements-dev.txt
+            agent/requirements.txt
+
+      - name: Install dependencies
+        run: pip install -r requirements-dev.txt -r agent/requirements.txt
+
+      - name: Run tests
+        run: pytest -q
+
+      - name: Lint CloudFormation templates
+        run: cfn-lint template.yaml agent/template.yaml
