@@ -1,0 +1,12 @@
+[project]
+name = "stash"
+version = "0.1.0"
+description = "A personal link and note stash on AWS Lambda + DynamoDB, inside the always-free tier."
+requires-python = ">=3.12"
+
+[tool.pytest.ini_options]
+testpaths = ["tests", "agent/tests"]
+filterwarnings = [
+    "ignore::UserWarning:google.*",
+    "ignore::DeprecationWarning",
+]

@@ -1,0 +1,144 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: >-
+  stash - a personal link and note stash. One Lambda behind a Function URL plus one
+  DynamoDB table, sized to stay inside the AWS always-free tier.
+
+Parameters:
+  ApiKey:
+    Type: String
+    NoEcho: true
+    MinLength: 24
+    Description: >-
+      Shared secret for the web app and API, 24+ characters. Generate one with:
+      python -c "import secrets; print(secrets.token_urlsafe(32))"
+  ReadCapacity:
+    Type: Number
+    Default: 10
+    MinValue: 1
+    MaxValue: 25
+    Description: >-
+      Provisioned read capacity units. The always-free tier covers 25 RCU in total across
+      ALL tables in the region, so leave headroom for other projects.
+  WriteCapacity:
+    Type: Number
+    Default: 10
+    MinValue: 1
+    MaxValue: 25
+    Description: Provisioned write capacity units (25 WCU always-free, shared like ReadCapacity).
+  AgentUrl:
+    Type: String
+    Default: ""
+    AllowedPattern: "^$|^https://.+"
+    Description: Optional. AgentUrl output of the stash-agent stack; turns on the Ask box in the web app.
+  BudgetEmail:
+    Type: String
+    Default: ""
+    Description: Optional. If set, creates a monthly AWS Budget that emails you once the account spends $0.01.
+
+Conditions:
+  CreateBudget: !Not [!Equals [!Ref BudgetEmail, ""]]
+
+Resources:
+  Table:
+    Type: AWS::DynamoDB::Table
+    # Keep your data if the stack is deleted or the table is ever replaced.
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      # Provisioned (not on-demand) because the always-free tier is expressed in provisioned capacity.
+      BillingMode: PROVISIONED
+      ProvisionedThroughput:
+        ReadCapacityUnits: !Ref ReadCapacity
+        WriteCapacityUnits: !Ref WriteCapacity
+      AttributeDefinitions:
+        - AttributeName: pk
+          AttributeType: S
+        - AttributeName: sk
+          AttributeType: S
+      KeySchema:
+        - AttributeName: pk
+          KeyType: HASH
+        - AttributeName: sk
+          KeyType: RANGE
+
+  Logs:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /stash/${AWS::StackName}
+      RetentionInDays: 14
+
+  Function:
+    Type: AWS::Serverless::Function
+    Properties:
+      Description: stash web app and JSON API
+      CodeUri: src/
+      Handler: stash.app.handler
+      Runtime: python3.13
+      Architectures: [arm64]
+      MemorySize: 256
+      Timeout: 15
+      LoggingConfig:
+        LogGroup: !Ref Logs
+        LogFormat: Text
+      Environment:
+        Variables:
+          STASH_TABLE: !Ref Table
+          STASH_API_KEY: !Ref ApiKey
+          AGENT_URL: !Ref AgentUrl
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref Table
+
+  StashUrl:
+    Type: AWS::Lambda::Url
+    Properties:
+      TargetFunctionArn: !GetAtt Function.Arn
+      AuthType: NONE
+
+  # A public Function URL needs both statements; the second is scoped to URL calls only,
+  # so the function can't be invoked directly through the Lambda API by other accounts.
+  UrlInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref Function
+      Action: lambda:InvokeFunctionUrl
+      Principal: "*"
+      FunctionUrlAuthType: NONE
+
+  UrlInvokeFunctionPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref Function
+      Action: lambda:InvokeFunction
+      Principal: "*"
+      InvokedViaFunctionUrl: true
+
+  ZeroSpendBudget:
+    Type: AWS::Budgets::Budget
+    Condition: CreateBudget
+    Properties:
+      Budget:
+        BudgetName: !Sub ${AWS::StackName}-zero-spend
+        BudgetType: COST
+        TimeUnit: MONTHLY
+        BudgetLimit:
+          Amount: 1
+          Unit: USD
+      NotificationsWithSubscribers:
+        - Notification:
+            NotificationType: ACTUAL
+            ComparisonOperator: GREATER_THAN
+            Threshold: 1
+            ThresholdType: PERCENTAGE
+          Subscribers:
+            - SubscriptionType: EMAIL
+              Address: !Ref BudgetEmail
+
+Outputs:
+  StashUrl:
+    Description: Open this in a browser. It is also the API base URL.
+    Value: !GetAtt StashUrl.FunctionUrl
+  TableName:
+    Description: DynamoDB table (retained if the stack is deleted).
+    Value: !Ref Table

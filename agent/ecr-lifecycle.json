@@ -1,0 +1,14 @@
+{
+  "rules": [
+    {
+      "rulePriority": 1,
+      "description": "Keep only the two newest images so storage stays around a dime a month",
+      "selection": {
+        "tagStatus": "any",
+        "countType": "imageCountMoreThan",
+        "countNumber": 2
+      },
+      "action": { "type": "expire" }
+    }
+  ]
+}

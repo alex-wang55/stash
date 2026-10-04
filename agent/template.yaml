@@ -1,0 +1,90 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: >-
+  stash-agent - a Google ADK agent packaged as a Lambda container image, answering
+  questions about your stash through its API. Exposed on its own Function URL.
+
+Parameters:
+  StashUrl:
+    Type: String
+    AllowedPattern: "^https://[^/]+/$"
+    Description: StashUrl output of the stash stack, e.g. https://abc123.lambda-url.us-east-1.on.aws/
+  ApiKey:
+    Type: String
+    NoEcho: true
+    MinLength: 24
+    Description: The same ApiKey you gave the stash stack. Callers of the agent must send it too.
+  GoogleApiKey:
+    Type: String
+    NoEcho: true
+    Description: Gemini API key from https://aistudio.google.com/apikey
+  Model:
+    Type: String
+    Default: ""
+    Description: Optional Gemini model id. Empty uses ADK's default model.
+
+Resources:
+  Logs:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /stash-agent/${AWS::StackName}
+      RetentionInDays: 14
+
+  AgentFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      Dockerfile: Dockerfile
+      DockerContext: .
+      DockerTag: latest
+    Properties:
+      Description: stash agent (Google ADK)
+      PackageType: Image
+      Architectures: [x86_64]
+      # More memory also means more CPU, which shortens ADK's cold-start import.
+      MemorySize: 1024
+      Timeout: 60
+      LoggingConfig:
+        LogGroup: !Ref Logs
+        LogFormat: Text
+      Environment:
+        Variables:
+          STASH_URL: !Ref StashUrl
+          STASH_API_KEY: !Ref ApiKey
+          GOOGLE_API_KEY: !Ref GoogleApiKey
+          GOOGLE_GENAI_USE_VERTEXAI: "FALSE"
+          STASH_AGENT_MODEL: !Ref Model
+          HOME: /tmp
+
+  AgentUrl:
+    Type: AWS::Lambda::Url
+    Properties:
+      TargetFunctionArn: !GetAtt AgentFunction.Arn
+      AuthType: NONE
+      Cors:
+        # The stash web app calls the agent from the browser, so allow exactly its origin.
+        AllowOrigins:
+          - !Join ["", ["https://", !Select [2, !Split ["/", !Ref StashUrl]]]]
+        AllowMethods: [POST]
+        AllowHeaders: [authorization, content-type]
+        MaxAge: 3600
+
+  UrlInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref AgentFunction
+      Action: lambda:InvokeFunctionUrl
+      Principal: "*"
+      FunctionUrlAuthType: NONE
+
+  UrlInvokeFunctionPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref AgentFunction
+      Action: lambda:InvokeFunction
+      Principal: "*"
+      InvokedViaFunctionUrl: true
+
+Outputs:
+  AgentUrl:
+    Description: Pass this as AgentUrl when redeploying the stash stack to enable the Ask box.
+    Value: !GetAtt AgentUrl.FunctionUrl

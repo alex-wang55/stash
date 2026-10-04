@@ -1,0 +1,1527 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<meta name="color-scheme" content="light dark">
+<title>stash</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%231b1a17'/%3E%3Cpath d='M9 11h14M9 16h14' stroke='%23f5f3ee' stroke-width='2.6' stroke-linecap='round'/%3E%3Cpath d='M9 21h8' stroke='%23e07a4d' stroke-width='2.6' stroke-linecap='round'/%3E%3C/svg%3E">
+<style>
+:root {
+  --bg: #f5f3ee;
+  --surface: #fbfaf7;
+  --ink: #1b1a17;
+  --ink-2: #55524a;
+  --ink-3: #8b877c;
+  --rule: #e2ded4;
+  --rule-strong: #cdc7b9;
+  --accent: #b8461b;
+  --hl: #f4dfae;
+  --sel: #ece8de;
+  --danger: #b42318;
+  --shadow: 0 1px 0 rgba(27, 26, 23, .03), 0 10px 30px -18px rgba(27, 26, 23, .25);
+  --serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Charter, Georgia, serif;
+  --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --mono: ui-monospace, "Cascadia Mono", "SF Mono", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #141311;
+    --surface: #1c1b18;
+    --ink: #ebe7de;
+    --ink-2: #b3ad9f;
+    --ink-3: #7f7a6e;
+    --rule: #2b2925;
+    --rule-strong: #3d3a34;
+    --accent: #e07a4d;
+    --hl: #4d3b18;
+    --sel: #23211d;
+    --danger: #f0715f;
+    --shadow: 0 1px 0 rgba(0, 0, 0, .2), 0 12px 32px -18px rgba(0, 0, 0, .7);
+  }
+}
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 15px/1.5 var(--sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+[hidden] { display: none !important; }
+button, input, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid color-mix(in srgb, var(--accent) 55%, transparent); outline-offset: 2px; border-radius: 4px; }
+::selection { background: var(--hl); }
+mark { background: var(--hl); color: inherit; border-radius: 2px; padding: 0 1px; }
+kbd {
+  font: 11px/1 var(--mono);
+  padding: 2px 5px 3px;
+  border: 1px solid var(--rule-strong);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--ink-2);
+}
+.dot { color: var(--accent); }
+
+/* ---------- lock screen ---------- */
+.lock { min-height: 100vh; display: grid; place-items: center; padding: 24px; }
+.lock-box { width: min(360px, 100%); }
+.lock h1 { font: 44px/1 var(--serif); letter-spacing: -.02em; margin: 0 0 10px; }
+.lock p { color: var(--ink-2); margin: 0 0 22px; }
+.lock form { display: grid; gap: 10px; }
+.lock .err { color: var(--danger); font-size: 13px; min-height: 1.5em; margin: 0; }
+
+.field {
+  width: 100%;
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  padding: 9px 11px;
+  outline: none;
+  transition: border-color .15s;
+}
+.field:focus { border-color: var(--ink-3); }
+.btn {
+  border: 0;
+  border-radius: 8px;
+  background: var(--ink);
+  color: var(--bg);
+  padding: 9px 16px;
+  font-weight: 500;
+  font-size: 14px;
+}
+.btn:disabled { opacity: .45; cursor: default; }
+.btn.ghost { background: transparent; color: var(--ink-2); }
+.btn.ghost:hover { color: var(--ink); }
+.linkish { background: none; border: 0; padding: 0; color: inherit; text-decoration: underline; text-decoration-color: var(--rule-strong); text-underline-offset: 3px; }
+.linkish:hover { color: var(--ink); text-decoration-color: currentColor; }
+
+/* ---------- masthead ---------- */
+.wrap { max-width: 1000px; margin: 0 auto; padding: 0 28px; }
+.masthead { display: flex; align-items: center; gap: 16px; padding-top: 30px; }
+.wordmark { font: 28px/1 var(--serif); letter-spacing: -.02em; color: var(--ink); text-decoration: none; }
+.tally { font: 12px var(--mono); color: var(--ink-3); padding-top: 6px; }
+.finder { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+.modes { display: flex; border: 1px solid var(--rule); border-radius: 8px; padding: 2px; }
+.modes button { border: 0; background: none; border-radius: 6px; padding: 3px 10px; font-size: 13px; color: var(--ink-3); }
+.modes button[aria-pressed="true"] { background: var(--sel); color: var(--ink); }
+.search { position: relative; display: block; }
+.search svg { position: absolute; left: 10px; top: 50%; translate: 0 -50%; color: var(--ink-3); pointer-events: none; }
+.search input {
+  width: 240px;
+  background: transparent;
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  padding: 6px 34px 6px 31px;
+  outline: none;
+  font-size: 14px;
+  transition: border-color .15s, width .2s;
+}
+.search input:focus { border-color: var(--ink-3); background: var(--surface); }
+.search input::-webkit-search-cancel-button { display: none; }
+.search kbd { position: absolute; right: 8px; top: 50%; translate: 0 -50%; pointer-events: none; }
+.search input:focus + kbd, .search input:not(:placeholder-shown) + kbd { display: none; }
+
+/* ---------- capture ---------- */
+.capture { margin-top: 22px; }
+.capture-box {
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  transition: border-color .15s;
+}
+.capture-box:focus-within { border-color: var(--rule-strong); }
+.capture-row { display: grid; grid-template-columns: auto 1fr 220px auto; align-items: stretch; }
+.kind {
+  align-self: center;
+  margin-left: 14px;
+  font: 11px var(--mono);
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--ink-3);
+  width: 3.2em;
+}
+.kind.is-link { color: var(--accent); }
+#cap-main {
+  border: 0;
+  background: transparent;
+  resize: none;
+  outline: none;
+  padding: 14px 12px;
+  font-size: 16px;
+  line-height: 1.45;
+  min-height: 51px;
+  max-height: 40vh;
+}
+.tagwrap { position: relative; display: flex; }
+.capture .tagwrap { border-left: 1px solid var(--rule); }
+#cap-tags {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  outline: none;
+  padding: 0 14px;
+  font: 13px var(--mono);
+}
+.capture .btn { margin: 8px; align-self: center; }
+.capture-extra { border-top: 1px dashed var(--rule); display: flex; }
+#cap-note {
+  flex: 1;
+  border: 0;
+  background: transparent;
+  resize: none;
+  outline: none;
+  padding: 10px 16px 12px;
+  font-size: 14px;
+  color: var(--ink-2);
+  min-height: 44px;
+}
+.capture-hint { font: 11.5px var(--mono); color: var(--ink-3); padding: 7px 2px 0; opacity: 0; transition: opacity .2s; }
+.capture:focus-within .capture-hint { opacity: 1; }
+
+.suggest {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 20;
+  min-width: 180px;
+  background: var(--surface);
+  border: 1px solid var(--rule-strong);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+  padding: 4px;
+}
+.suggest button {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
+  border: 0;
+  background: none;
+  text-align: left;
+  font: 13px var(--mono);
+  padding: 5px 8px;
+  border-radius: 5px;
+  color: var(--ink-2);
+}
+.suggest button span { color: var(--ink-3); }
+.suggest button.on { background: var(--sel); color: var(--ink); }
+
+/* ---------- layout ---------- */
+.layout { display: grid; grid-template-columns: 170px minmax(0, 1fr); gap: 48px; margin-top: 34px; padding-bottom: 40px; }
+.rail {
+  position: sticky;
+  top: 24px;
+  align-self: start;
+  max-height: calc(100vh - 48px);
+  overflow: hidden auto;
+  font-size: 13.5px;
+  margin-left: -8px;
+  padding: 0 4px 0 8px;
+}
+.rail h2, .group {
+  font: 500 11px var(--mono);
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: var(--ink-3);
+  margin: 0 0 8px;
+}
+.rail a {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+  padding: 3px 8px;
+  margin: 0 -8px;
+  border-radius: 6px;
+  color: var(--ink-2);
+  text-decoration: none;
+}
+.rail a:hover { background: var(--sel); color: var(--ink); }
+.rail a[aria-current="true"] { background: var(--sel); color: var(--ink); font-weight: 600; }
+.rail a .n { font: 12px var(--mono); color: var(--ink-3); font-weight: 400; }
+.rail a .h { color: var(--ink-3); font-weight: 400; }
+.rail .sep { height: 1px; background: var(--rule); margin: 10px 0; }
+.rail .linkish { font-size: 12.5px; color: var(--ink-3); margin-top: 6px; }
+
+/* ---------- items ---------- */
+.filterline { display: flex; gap: 10px; align-items: baseline; font-size: 13.5px; color: var(--ink-2); margin-bottom: 14px; }
+.filterline b { color: var(--ink); font-weight: 600; }
+.items { list-style: none; margin: 0; padding: 0; }
+.group { padding: 26px 0 8px; }
+.items > .group:first-child { padding-top: 0; }
+.item {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  column-gap: 20px;
+  padding: 13px 0 14px;
+  border-top: 1px solid var(--rule);
+}
+.group + .item { border-top-color: transparent; }
+.item::before {
+  content: "";
+  position: absolute;
+  left: -16px;
+  top: 14px;
+  bottom: 14px;
+  width: 3px;
+  border-radius: 2px;
+  background: var(--accent);
+  opacity: 0;
+  transition: opacity .12s;
+}
+.item.sel::before { opacity: 1; }
+.item .title {
+  font: 18.5px/1.3 var(--serif);
+  color: var(--ink);
+  text-decoration: none;
+  text-wrap: pretty;
+  overflow-wrap: anywhere;
+}
+a.title:hover { text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 4px; text-decoration-color: var(--ink-3); }
+a.title:visited { color: var(--ink-2); }
+.meta { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 4px; font: 12px/1.5 var(--mono); color: var(--ink-3); }
+.meta .tag { color: var(--ink-2); text-decoration: none; }
+.meta .tag:hover { color: var(--accent); }
+.note, .excerpt {
+  margin: 7px 0 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.note { font-size: 14.5px; color: var(--ink-2); -webkit-line-clamp: 4; cursor: default; }
+.note.clamped { cursor: zoom-in; }
+.note.open { -webkit-line-clamp: unset; cursor: zoom-out; }
+.excerpt { font-size: 14px; color: var(--ink-3); -webkit-line-clamp: 2; }
+.side { grid-column: 2; grid-row: 1 / span 4; text-align: right; display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+.side time { font: 12px/1.9 var(--mono); color: var(--ink-3); white-space: nowrap; }
+.actions { display: flex; gap: 12px; opacity: 0; transition: opacity .12s; }
+.item:hover .actions, .item.sel .actions, .item:focus-within .actions { opacity: 1; }
+@media (hover: none) { .actions { opacity: 1; } }
+.actions button { border: 0; background: none; padding: 0; font-size: 12.5px; color: var(--ink-3); }
+.actions button:hover { color: var(--ink); }
+.actions button.armed { color: var(--danger); font-weight: 600; }
+
+.item.pending .title { color: var(--ink-3); font-style: italic; }
+.item.pending .meta::after { content: "fetching title…"; animation: pulse 1.2s ease-in-out infinite; }
+@keyframes pulse { 50% { opacity: .35; } }
+.item.fresh { animation: fresh 1.8s ease-out; }
+@keyframes fresh {
+  0% { background: var(--hl); box-shadow: 0 0 0 10px var(--hl); }
+  100% { background: transparent; box-shadow: 0 0 0 10px transparent; }
+}
+.item.leaving { transition: opacity .18s, transform .18s; opacity: 0; transform: translateX(8px); }
+
+.editor { grid-column: 1 / -1; display: grid; gap: 8px; padding: 2px 0; }
+.editor .f-title { font: 17px var(--serif); }
+.editor .f-url { font: 12.5px var(--mono); }
+.editor textarea { resize: vertical; min-height: 70px; line-height: 1.45; }
+.editor .f-tags { font: 13px var(--mono); }
+.editor .row { display: flex; align-items: center; gap: 8px; }
+.editor .row .hint { margin-right: auto; font: 11.5px var(--mono); color: var(--ink-3); }
+
+.more { text-align: center; padding: 26px 0 8px; font: 12px var(--mono); color: var(--ink-3); }
+.empty { padding: 30px 0; max-width: 46ch; }
+.empty h2 { font: 400 23px/1.25 var(--serif); margin: 0 0 8px; letter-spacing: -.01em; }
+.empty p { color: var(--ink-2); margin: 0 0 10px; }
+
+/* ---------- ask ---------- */
+.answer {
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  padding: 16px 20px 18px;
+  margin-bottom: 28px;
+  position: relative;
+}
+.answer .q { font: 12px var(--mono); color: var(--ink-3); margin: 0 28px 10px 0; }
+.answer .body { font-size: 15px; }
+.answer .body p { margin: 0 0 10px; }
+.answer .body p:last-child, .answer .body ul:last-child { margin-bottom: 0; }
+.answer .body ul { margin: 0 0 10px; padding-left: 20px; }
+.answer .body li { margin: 3px 0; }
+.answer .body a { color: var(--accent); text-underline-offset: 3px; }
+.answer .thinking { color: var(--ink-3); animation: pulse 1.4s ease-in-out infinite; }
+.answer .error { color: var(--danger); }
+.answer .tools { margin-top: 12px; font: 11.5px var(--mono); color: var(--ink-3); }
+.answer .close { position: absolute; top: 10px; right: 12px; border: 0; background: none; font-size: 18px; line-height: 1; color: var(--ink-3); padding: 4px; }
+.answer .close:hover { color: var(--ink); }
+
+/* ---------- chrome ---------- */
+.foot { display: flex; gap: 18px; font-size: 12.5px; color: var(--ink-3); padding-top: 18px; padding-bottom: 40px; border-top: 1px solid var(--rule); }
+.foot button { border: 0; background: none; padding: 0; color: inherit; }
+.foot button:hover { color: var(--ink); }
+.foot .spacer { margin-left: auto; }
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 22px;
+  translate: -50% 16px;
+  opacity: 0;
+  pointer-events: none;
+  background: var(--ink);
+  color: var(--bg);
+  font-size: 13.5px;
+  padding: 8px 14px;
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+  transition: opacity .18s, translate .18s;
+  max-width: calc(100vw - 32px);
+}
+.toast.show { opacity: 1; translate: -50% 0; }
+.toast.error { background: var(--danger); color: #fff; }
+
+dialog {
+  border: 1px solid var(--rule);
+  border-radius: 14px;
+  background: var(--surface);
+  color: var(--ink);
+  padding: 22px 26px 24px;
+  width: min(440px, calc(100vw - 32px));
+  box-shadow: var(--shadow);
+}
+dialog::backdrop { background: rgba(20, 19, 17, .35); backdrop-filter: blur(2px); }
+dialog h2 { font: 400 21px var(--serif); margin: 0 0 14px; }
+dialog p { color: var(--ink-2); margin: 0 0 14px; font-size: 14px; }
+dialog .close-row { display: flex; justify-content: flex-end; margin-top: 18px; }
+.keys { display: grid; grid-template-columns: auto 1fr; gap: 9px 16px; margin: 0; font-size: 14px; }
+.keys dt { text-align: right; white-space: nowrap; }
+.keys dd { margin: 0; color: var(--ink-2); }
+.bookmarklet {
+  display: inline-block;
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: 1px dashed var(--rule-strong);
+  font: 500 14px var(--sans);
+  color: var(--ink);
+  text-decoration: none;
+  cursor: grab;
+}
+
+/* ---------- popup (bookmarklet) mode ---------- */
+body.popup .layout, body.popup .foot, body.popup .finder, body.popup .tally, body.popup .capture-hint { display: none; }
+body.popup .masthead { padding-top: 18px; }
+body.popup .capture { margin-top: 14px; }
+.popup-title {
+  font: 19px/1.3 var(--serif);
+  margin: 0 0 12px;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+#cap-main, #cap-note { overflow-y: hidden; }
+.saved-msg { margin-top: 18px; font: 400 19px var(--serif); }
+.saved-msg span { color: var(--ink-3); font: 13px var(--sans); display: block; margin-top: 4px; }
+
+/* ---------- small screens ---------- */
+@media (max-width: 760px) {
+  .wrap { padding: 0 18px; }
+  .masthead { flex-wrap: wrap; padding-top: 20px; }
+  .finder { margin-left: 0; width: 100%; order: 3; }
+  .search { flex: 1; }
+  .search input { width: 100%; }
+  .search kbd { display: none; }
+  .capture-row { grid-template-columns: minmax(0, 1fr) auto; }
+  .kind { display: none; }
+  #cap-main { grid-column: 1 / -1; padding: 13px 16px; border-bottom: 1px solid var(--rule); }
+  .capture .tagwrap { grid-column: 1; grid-row: 2; border-left: 0; }
+  .capture .btn { grid-column: 2; grid-row: 2; margin: 6px 6px 6px 0; }
+  #cap-tags { padding: 11px 16px; }
+  .capture-hint { display: none; }
+  .layout { grid-template-columns: minmax(0, 1fr); gap: 18px; margin-top: 22px; }
+  .rail { position: static; max-height: none; display: flex; gap: 6px; overflow-x: auto; margin-left: 0; padding: 0 0 4px; scrollbar-width: none; }
+  .rail h2, .rail .sep { display: none; }
+  .rail a { margin: 0; flex: none; border: 1px solid var(--rule); border-radius: 999px; padding: 3px 11px; }
+  .rail .linkish { flex: none; margin: 0 4px; align-self: center; }
+  .item::before { left: -10px; }
+  .item { grid-template-columns: minmax(0, 1fr); }
+  .item .title { font-size: 17.5px; }
+  .side { grid-column: 1; grid-row: auto; order: 1; flex-direction: row; justify-content: space-between; align-items: center; margin-top: 8px; }
+  .side time { line-height: 1.5; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+</style>
+</head>
+<body>
+
+<section class="lock" id="lock" hidden>
+  <div class="lock-box">
+    <h1>stash<span class="dot">.</span></h1>
+    <p>A small place for links and notes. Enter the API key you chose when you deployed it.</p>
+    <form id="lock-form">
+      <input class="field" id="lock-key" type="password" autocomplete="current-password" placeholder="API key" aria-label="API key" required>
+      <button class="btn" type="submit">Unlock</button>
+      <p class="err" id="lock-err" role="alert"></p>
+    </form>
+  </div>
+</section>
+
+<div id="app" hidden>
+  <header class="wrap masthead">
+    <a class="wordmark" href="/" id="home">stash<span class="dot">.</span></a>
+    <span class="tally" id="tally"></span>
+    <div class="finder">
+      <div class="modes" id="modes" hidden>
+        <button type="button" data-mode="search" aria-pressed="true">Search</button>
+        <button type="button" data-mode="ask" aria-pressed="false">Ask</button>
+      </div>
+      <label class="search">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="7" cy="7" r="4.75" stroke="currentColor" stroke-width="1.5"/><path d="m10.5 10.5 3.25 3.25" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        <input id="search" type="search" placeholder="Search" autocomplete="off" spellcheck="false" aria-label="Search">
+        <kbd>/</kbd>
+      </label>
+    </div>
+  </header>
+
+  <div class="wrap capture">
+    <div class="popup-title" id="popup-title" hidden></div>
+    <form id="capture" class="capture-box" autocomplete="off">
+      <div class="capture-row">
+        <span class="kind" id="cap-kind" aria-hidden="true">+</span>
+        <textarea id="cap-main" rows="1" placeholder="Paste a link, or write a note" aria-label="Link or note"></textarea>
+        <div class="tagwrap"><input id="cap-tags" placeholder="tags" aria-label="Tags, separated by spaces"></div>
+        <button class="btn" type="submit" id="cap-save">Save</button>
+      </div>
+      <div class="capture-extra" id="cap-extra" hidden>
+        <textarea id="cap-note" rows="1" placeholder="Why are you saving this? (optional)" aria-label="Note"></textarea>
+      </div>
+    </form>
+    <div class="capture-hint"><kbd>Enter</kbd> save &nbsp;·&nbsp; <kbd>Shift</kbd>+<kbd>Enter</kbd> new line &nbsp;·&nbsp; <kbd>Tab</kbd> to tags</div>
+    <div class="saved-msg" id="saved-msg" hidden></div>
+  </div>
+
+  <div class="wrap layout">
+    <nav class="rail" id="rail" aria-label="Tags"></nav>
+    <main>
+      <section class="answer" id="answer" hidden aria-live="polite"></section>
+      <div class="filterline" id="filterline" hidden></div>
+      <ol class="items" id="items"></ol>
+      <div class="empty" id="empty" hidden></div>
+      <div class="more" id="more"></div>
+    </main>
+  </div>
+
+  <footer class="wrap foot">
+    <button type="button" id="open-keys">Keyboard shortcuts <kbd>?</kbd></button>
+    <button type="button" id="open-bm">Bookmarklet</button>
+    <span class="spacer"></span>
+    <button type="button" id="lock-btn">Lock</button>
+  </footer>
+</div>
+
+<dialog id="keys-dialog">
+  <h2>Keyboard</h2>
+  <dl class="keys">
+    <dt><kbd>/</kbd></dt><dd>Search (or ask, in Ask mode)</dd>
+    <dt><kbd>n</kbd></dt><dd>New link or note</dd>
+    <dt><kbd>j</kbd> <kbd>k</kbd></dt><dd>Next / previous item</dd>
+    <dt><kbd>o</kbd> or <kbd>Enter</kbd></dt><dd>Open the selected link</dd>
+    <dt><kbd>e</kbd></dt><dd>Edit the selected item</dd>
+    <dt><kbd>x</kbd> <kbd>x</kbd></dt><dd>Delete the selected item (press twice)</dd>
+    <dt><kbd>Esc</kbd></dt><dd>Cancel, clear selection, then clear filters</dd>
+    <dt><kbd>Ctrl</kbd>+<kbd>Enter</kbd></dt><dd>Save while editing</dd>
+  </dl>
+  <div class="close-row"><button class="btn ghost" type="button" data-close>Close</button></div>
+</dialog>
+
+<dialog id="bm-dialog">
+  <h2>Save from anywhere</h2>
+  <p>Drag this button to your bookmarks bar. Clicking it on any page opens a small window to stash that page, with its title already filled in.</p>
+  <a class="bookmarklet" id="bm-link" href="#">+ stash</a>
+  <div class="close-row"><button class="btn ghost" type="button" data-close>Close</button></div>
+</dialog>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+"use strict";
+
+const $ = (sel, root = document) => root.querySelector(sel);
+const KEY_STORAGE = "stash.apiKey";
+const PAGE_SIZE = 40;
+const RAIL_LIMIT = 24;
+
+const state = {
+  key: null,
+  items: [],
+  cursor: null,
+  loading: false,
+  seq: 0,
+  tag: null,
+  q: "",
+  tags: [],
+  total: 0,
+  sel: -1,
+  editing: null,
+  armed: null,
+  railOpen: false,
+  agentUrl: null,
+  mode: "search",
+  popup: null,
+};
+
+// ---------- small utilities ----------
+
+function el(tag, props, ...kids) {
+  const node = document.createElement(tag);
+  for (const [k, v] of Object.entries(props || {})) {
+    if (v == null || v === false) continue;
+    if (k === "class") node.className = v;
+    else if (k.startsWith("on")) node.addEventListener(k.slice(2), v);
+    else node.setAttribute(k, v === true ? "" : v);
+  }
+  for (const kid of kids.flat()) if (kid != null && kid !== false) node.append(kid);
+  return node;
+}
+
+function storageGet(k) { try { return localStorage.getItem(k); } catch { return null; } }
+function storageSet(k, v) { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch {} }
+
+const safeHref = (url) => (typeof url === "string" && /^https?:\/\//i.test(url) ? url : null);
+const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const looksLikeUrl = (s) =>
+  /^https?:\/\/\S+$/i.test(s) || /^(www\.)?[a-z0-9-]+(\.[a-z0-9-]+)*\.[a-z]{2,}(\/\S*)?$/i.test(s);
+const parseTags = (s) =>
+  [...new Set(s.split(/[,\s]+/).map((t) => t.replace(/^#+/, "").toLowerCase()).filter(Boolean))];
+
+function terms() { return state.q.toLowerCase().split(/\s+/).filter(Boolean); }
+
+function highlight(text, words) {
+  const frag = document.createDocumentFragment();
+  if (!text) return frag;
+  if (!words.length) { frag.append(text); return frag; }
+  const re = new RegExp(words.map(escapeRe).join("|"), "gi");
+  let last = 0;
+  for (const m of text.matchAll(re)) {
+    if (!m[0]) continue;
+    frag.append(text.slice(last, m.index), el("mark", null, m[0]));
+    last = m.index + m[0].length;
+  }
+  frag.append(text.slice(last));
+  return frag;
+}
+
+function autosize(ta) {
+  ta.style.height = "";
+  if (ta.value) ta.style.height = Math.max(ta.scrollHeight, ta.offsetHeight) + "px";
+  ta.style.overflowY = ta.scrollHeight > ta.clientHeight + 1 ? "auto" : "hidden";
+}
+
+let toastTimer;
+function toast(message, isError = false) {
+  const t = $("#toast");
+  t.textContent = message;
+  t.classList.toggle("error", isError);
+  t.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove("show"), isError ? 5000 : 2200);
+}
+
+// ---------- dates ----------
+
+const DAY = 86400000;
+function startOfDay(d) { return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime(); }
+
+function groupLabel(iso) {
+  const d = new Date(iso);
+  const now = new Date();
+  const days = Math.round((startOfDay(now) - startOfDay(d)) / DAY);
+  if (days <= 0) return "Today";
+  if (days === 1) return "Yesterday";
+  if (days < 7) return "This week";
+  if (d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth()) return "Earlier this month";
+  const month = d.toLocaleDateString(undefined, { month: "long" });
+  return d.getFullYear() === now.getFullYear() ? month : `${month} ${d.getFullYear()}`;
+}
+
+function shortTime(iso) {
+  const d = new Date(iso);
+  const secs = (Date.now() - d.getTime()) / 1000;
+  if (secs < 60) return "just now";
+  if (secs < 3600) return `${Math.floor(secs / 60)}m ago`;
+  if (startOfDay(d) === startOfDay(new Date())) return d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+  const sameYear = d.getFullYear() === new Date().getFullYear();
+  return d.toLocaleDateString(undefined, sameYear ? { month: "short", day: "numeric" } : { year: "numeric", month: "short", day: "numeric" });
+}
+
+// ---------- API ----------
+
+class ApiError extends Error {
+  constructor(status, message) { super(message); this.status = status; }
+}
+
+async function api(path, { method = "GET", body } = {}) {
+  let res;
+  try {
+    res = await fetch(path, {
+      method,
+      headers: {
+        authorization: `Bearer ${state.key}`,
+        ...(body ? { "content-type": "application/json" } : {}),
+      },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+  } catch {
+    throw new ApiError(0, "Can't reach stash. Check your connection.");
+  }
+  if (res.status === 401) {
+    showLock("That key didn't work.");
+    throw new ApiError(401, "Locked");
+  }
+  if (res.status === 204) return null;
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new ApiError(res.status, data.error || `Request failed (${res.status})`);
+  return data;
+}
+
+// ---------- URL state ----------
+
+function readUrl() {
+  const p = new URLSearchParams(location.search);
+  state.tag = p.get("tag") || null;
+  state.q = p.get("q") || "";
+}
+
+function writeUrl(push) {
+  const p = new URLSearchParams();
+  if (state.tag) p.set("tag", state.tag);
+  if (state.q) p.set("q", state.q);
+  const url = location.pathname + (p.toString() ? `?${p}` : "");
+  if (url === location.pathname + location.search) return;
+  history[push ? "pushState" : "replaceState"](null, "", url);
+}
+
+// ---------- loading ----------
+
+async function load({ append = false } = {}) {
+  const seq = ++state.seq;
+  const p = new URLSearchParams({ limit: String(PAGE_SIZE) });
+  if (state.tag) p.set("tag", state.tag);
+  if (state.q) p.set("q", state.q);
+  if (append && state.cursor) p.set("cursor", state.cursor);
+  state.loading = true;
+  renderMore();
+  try {
+    const data = await api(`/api/items?${p}`);
+    if (seq !== state.seq) return;
+    state.loading = false;
+    state.items = append ? state.items.concat(data.items) : data.items;
+    state.cursor = data.cursor;
+    if (!append) { state.sel = -1; state.editing = null; }
+    renderItems();
+  } catch (e) {
+    if (seq === state.seq && e.status !== 401) toast(e.message, true);
+  } finally {
+    if (seq === state.seq) { state.loading = false; renderMore(); renderEmpty(); }
+  }
+}
+
+async function refreshTags() {
+  const data = await api("/api/tags");
+  state.tags = data.tags;
+  state.total = data.total;
+  renderRail();
+}
+
+function setFilter({ tag = state.tag, q = state.q } = {}, push = false) {
+  const changed = tag !== state.tag || q !== state.q;
+  state.tag = tag;
+  state.q = q;
+  if ($("#search").value.trim() !== q && state.mode === "search") $("#search").value = q;
+  writeUrl(push);
+  renderRail();
+  if (changed) load();
+}
+
+// ---------- rendering: rail ----------
+
+function renderRail() {
+  const rail = $("#rail");
+  $("#tally").textContent = state.total === 1 ? "1 item" : `${state.total.toLocaleString()} items`;
+  const link = (tag, label, count) =>
+    el(
+      "a",
+      {
+        href: tag ? `?tag=${encodeURIComponent(tag)}` : "/",
+        "aria-current": String(state.tag === tag),
+        onclick: (e) => {
+          e.preventDefault();
+          setFilter({ tag: state.tag === tag && tag ? null : tag }, true);
+        },
+      },
+      el("span", null, label),
+      el("span", { class: "n" }, String(count)),
+    );
+
+  let tags = state.tags;
+  if (state.tag && !tags.some((t) => t.tag === state.tag)) tags = [{ tag: state.tag, count: 0 }, ...tags];
+  const shown = state.railOpen ? tags : tags.slice(0, RAIL_LIMIT);
+  if (state.tag && !shown.some((t) => t.tag === state.tag)) shown.push(tags.find((t) => t.tag === state.tag));
+
+  const nodes = [
+    el("h2", null, "Browse"),
+    link(null, "Everything", state.total),
+    tags.length ? el("div", { class: "sep" }) : null,
+    ...shown.map((t) => link(t.tag, [el("span", { class: "h" }, "#"), t.tag], t.count)),
+    tags.length > RAIL_LIMIT
+      ? el(
+          "button",
+          { class: "linkish", type: "button", onclick: () => { state.railOpen = !state.railOpen; renderRail(); } },
+          state.railOpen ? "Fewer tags" : `${tags.length - RAIL_LIMIT} more tags`,
+        )
+      : null,
+  ];
+  rail.replaceChildren(...nodes.filter(Boolean));
+}
+
+// ---------- rendering: items ----------
+
+function splitNote(item) {
+  if (item.title || item.url) return { title: item.title, note: item.note };
+  const [first, ...rest] = item.note.split("\n");
+  return { title: first, note: rest.join("\n").trim() };
+}
+
+function renderItem(item, index) {
+  if (state.editing === item.id) return renderEditor(item, index);
+  const words = terms();
+  const { title, note } = splitNote(item);
+  const href = safeHref(item.url);
+  const shownTitle = title || (item.url ? item.url.replace(/^https?:\/\/(www\.)?/, "") : "Untitled");
+
+  const titleNode = href
+    ? el("a", { class: "title", href, target: "_blank", rel: "noopener noreferrer" }, highlight(shownTitle, words))
+    : el("div", { class: "title" }, highlight(shownTitle, words));
+
+  const meta = el(
+    "div",
+    { class: "meta" },
+    el("span", null, item.domain || "note"),
+    ...item.tags.map((t) =>
+      el(
+        "a",
+        {
+          class: "tag",
+          href: `?tag=${encodeURIComponent(t)}`,
+          onclick: (e) => { e.preventDefault(); setFilter({ tag: t }, true); },
+        },
+        "#",
+        highlight(t, words),
+      ),
+    ),
+  );
+
+  const armed = state.armed === item.id;
+  const side = el(
+    "div",
+    { class: "side" },
+    el("time", { datetime: item.created_at, title: new Date(item.created_at).toLocaleString() }, shortTime(item.created_at)),
+    el(
+      "div",
+      { class: "actions" },
+      el("button", { type: "button", onclick: () => startEdit(item.id) }, "edit"),
+      el(
+        "button",
+        { type: "button", class: armed ? "armed" : null, onclick: () => requestDelete(item.id) },
+        armed ? "delete?" : "delete",
+      ),
+    ),
+  );
+
+  const li = el(
+    "li",
+    {
+      class: "item" + (index === state.sel ? " sel" : ""),
+      "data-id": item.id,
+      onclick: (e) => {
+        if (e.target.closest("a, button")) return;
+        state.sel = index;
+        markSelection();
+      },
+    },
+    el("div", null, titleNode, meta),
+    side,
+  );
+
+  if (note) {
+    const p = el("p", { class: "note" }, highlight(note, words));
+    p.addEventListener("click", () => {
+      if (p.classList.contains("clamped") || p.classList.contains("open")) p.classList.toggle("open");
+    });
+    li.append(p);
+    requestAnimationFrame(() => p.classList.toggle("clamped", p.scrollHeight > p.clientHeight + 1));
+  } else if (item.excerpt) {
+    li.append(el("p", { class: "excerpt" }, highlight(item.excerpt, words)));
+  }
+  return li;
+}
+
+function renderEditor(item, index) {
+  const fTitle = el("input", { class: "field f-title", value: item.title, placeholder: "Title", "aria-label": "Title" });
+  const fUrl = el("input", { class: "field f-url", value: item.url || "", placeholder: "https://… (optional for notes)", "aria-label": "URL" });
+  const fNote = el("textarea", { class: "field", placeholder: "Note", "aria-label": "Note" });
+  fNote.value = item.note;
+  const fTags = el("input", { class: "field f-tags", value: item.tags.join(" "), placeholder: "tags", "aria-label": "Tags" });
+  const tagwrap = el("div", { class: "tagwrap" }, fTags);
+  const saveBtn = el("button", { class: "btn", type: "submit" }, "Save");
+
+  const form = el(
+    "form",
+    {
+      class: "editor",
+      onsubmit: async (e) => {
+        e.preventDefault();
+        const changes = {};
+        if (fTitle.value.trim() !== item.title) changes.title = fTitle.value.trim();
+        if ((fUrl.value.trim() || null) !== (item.url || null)) changes.url = fUrl.value.trim() || null;
+        if (fNote.value.trim() !== item.note) changes.note = fNote.value.trim();
+        const tags = parseTags(fTags.value);
+        if (tags.join(" ") !== item.tags.join(" ")) changes.tags = tags;
+        if (!Object.keys(changes).length) return cancelEdit();
+        saveBtn.disabled = true;
+        try {
+          const updated = await api(`/api/items/${item.id}`, { method: "PATCH", body: changes });
+          const i = state.items.findIndex((x) => x.id === item.id);
+          if (i >= 0) state.items[i] = updated;
+          state.editing = null;
+          renderItems();
+          flash(updated.id);
+          if (changes.tags) refreshTags().catch(() => {});
+          toast("Saved");
+        } catch (err) {
+          saveBtn.disabled = false;
+          if (err.status === 409) { toast(err.message, true); load(); }
+          else if (err.status !== 401) toast(err.message, true);
+        }
+      },
+      onkeydown: (e) => {
+        if (e.key === "Escape") { e.preventDefault(); cancelEdit(); }
+        else if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); form.requestSubmit(); }
+      },
+    },
+    fTitle,
+    fUrl,
+    fNote,
+    tagwrap,
+    el(
+      "div",
+      { class: "row" },
+      el("span", { class: "hint" }, "Ctrl+Enter to save · Esc to cancel"),
+      el("button", { class: "btn ghost", type: "button", onclick: cancelEdit }, "Cancel"),
+      saveBtn,
+    ),
+  );
+  attachTagAssist(fTags);
+  requestAnimationFrame(() => { autosize(fNote); fTitle.focus(); });
+  fNote.addEventListener("input", () => autosize(fNote));
+  return el("li", { class: "item sel", "data-id": item.id }, form);
+}
+
+function renderItems() {
+  const list = $("#items");
+  const nodes = [];
+  let lastGroup = null;
+  state.items.forEach((item, i) => {
+    const g = groupLabel(item.created_at);
+    if (g !== lastGroup) {
+      nodes.push(el("li", { class: "group", "aria-hidden": "true" }, g));
+      lastGroup = g;
+    }
+    nodes.push(renderItem(item, i));
+  });
+  list.replaceChildren(...nodes);
+  renderFilterLine();
+  renderEmpty();
+  renderMore();
+}
+
+function renderFilterLine() {
+  const line = $("#filterline");
+  if (!state.tag && !state.q) { line.hidden = true; return; }
+  const parts = [];
+  if (state.q) parts.push("Matching ", el("b", null, `“${state.q}”`));
+  if (state.tag) parts.push(state.q ? " in " : "Tagged ", el("b", null, `#${state.tag}`));
+  line.replaceChildren(
+    el("span", null, ...parts),
+    el("button", { class: "linkish", type: "button", onclick: () => setFilter({ tag: null, q: "" }, true) }, "clear"),
+  );
+  line.hidden = false;
+}
+
+function renderEmpty() {
+  const box = $("#empty");
+  if (state.items.length || state.loading) { box.hidden = true; return; }
+  if (!state.tag && !state.q) {
+    box.replaceChildren(
+      el("h2", null, "Nothing stashed yet."),
+      el("p", null, "Paste a link above and press Enter. The page title and description are filled in for you."),
+      el(
+        "p",
+        null,
+        "To save pages while you browse, drag the ",
+        el("button", { class: "linkish", type: "button", onclick: openBookmarklet }, "bookmarklet"),
+        " to your bookmarks bar.",
+      ),
+    );
+  } else {
+    const what = state.q ? `“${state.q}”` : "";
+    const where = state.tag ? `#${state.tag}` : "";
+    box.replaceChildren(
+      el("h2", null, state.q ? `No matches for ${what}${where ? ` in ${where}` : ""}.` : `Nothing tagged ${where}.`),
+      el(
+        "p",
+        null,
+        el("button", { class: "linkish", type: "button", onclick: () => setFilter({ tag: null, q: "" }, true) }, "Show everything"),
+      ),
+    );
+  }
+  box.hidden = false;
+}
+
+function renderMore() {
+  const more = $("#more");
+  if (state.loading) more.textContent = state.items.length ? "Loading more…" : "Loading…";
+  else if (state.cursor) more.replaceChildren(el("button", { class: "linkish", type: "button", onclick: () => load({ append: true }) }, "Older"));
+  else more.textContent = state.items.length > 12 ? "That's everything." : "";
+}
+
+function markSelection() {
+  document.querySelectorAll("#items .item").forEach((li) => {
+    const i = state.items.findIndex((x) => x.id === li.dataset.id);
+    li.classList.toggle("sel", i === state.sel);
+  });
+}
+
+function flash(id) {
+  const li = document.querySelector(`#items .item[data-id="${id}"]`);
+  if (!li) return;
+  li.classList.remove("fresh");
+  void li.offsetWidth;
+  li.classList.add("fresh");
+}
+
+// ---------- item actions ----------
+
+function startEdit(id) {
+  state.editing = id;
+  state.armed = null;
+  state.sel = state.items.findIndex((x) => x.id === id);
+  renderItems();
+}
+
+function cancelEdit() {
+  const id = state.editing;
+  state.editing = null;
+  renderItems();
+  const li = id && document.querySelector(`#items .item[data-id="${id}"]`);
+  if (li) li.scrollIntoView({ block: "nearest" });
+}
+
+let armTimer;
+async function requestDelete(id) {
+  if (state.armed !== id) {
+    state.armed = id;
+    renderItems();
+    clearTimeout(armTimer);
+    armTimer = setTimeout(() => { if (state.armed === id) { state.armed = null; renderItems(); } }, 3000);
+    return;
+  }
+  state.armed = null;
+  clearTimeout(armTimer);
+  const li = document.querySelector(`#items .item[data-id="${id}"]`);
+  li?.classList.add("leaving");
+  try {
+    await api(`/api/items/${id}`, { method: "DELETE" });
+    const i = state.items.findIndex((x) => x.id === id);
+    if (i >= 0) state.items.splice(i, 1);
+    if (state.sel >= state.items.length) state.sel = state.items.length - 1;
+    renderItems();
+    refreshTags().catch(() => {});
+    toast("Deleted");
+  } catch (e) {
+    li?.classList.remove("leaving");
+    if (e.status === 404) { load(); refreshTags().catch(() => {}); }
+    else if (e.status !== 401) toast(e.message, true);
+  }
+}
+
+function openSelected() {
+  const item = state.items[state.sel];
+  if (!item) return;
+  const href = safeHref(item.url);
+  if (href) window.open(href, "_blank", "noopener,noreferrer");
+  else document.querySelector(`#items .item[data-id="${item.id}"] .note`)?.classList.toggle("open");
+}
+
+function moveSelection(delta) {
+  if (!state.items.length) return;
+  state.sel = state.sel < 0 ? (delta > 0 ? 0 : state.items.length - 1) : Math.max(0, Math.min(state.items.length - 1, state.sel + delta));
+  markSelection();
+  const item = state.items[state.sel];
+  document.querySelector(`#items .item[data-id="${item.id}"]`)?.scrollIntoView({ block: "nearest" });
+  if (state.sel >= state.items.length - 3 && state.cursor && !state.loading) load({ append: true });
+}
+
+// ---------- capture ----------
+
+function captureKind() {
+  return looksLikeUrl($("#cap-main").value.trim()) ? "link" : "note";
+}
+
+function syncCapture() {
+  const main = $("#cap-main");
+  autosize(main);
+  const kind = captureKind();
+  const kindEl = $("#cap-kind");
+  kindEl.textContent = main.value.trim() ? kind : "+";
+  kindEl.classList.toggle("is-link", kind === "link");
+  $("#cap-extra").hidden = kind !== "link" && !$("#cap-note").value;
+}
+
+async function submitCapture(e) {
+  e?.preventDefault();
+  const main = $("#cap-main");
+  const tagsInput = $("#cap-tags");
+  const noteInput = $("#cap-note");
+  const text = main.value.trim();
+  if (!text) { main.focus(); return; }
+
+  const body = { tags: parseTags(tagsInput.value) };
+  if (captureKind() === "link") {
+    body.url = text;
+    if (noteInput.value.trim()) body.note = noteInput.value.trim();
+    if (state.popup?.title && state.popup.url === text) body.title = state.popup.title;
+  } else {
+    body.note = [text, noteInput.value.trim()].filter(Boolean).join("\n\n");
+  }
+
+  const saveBtn = $("#cap-save");
+  saveBtn.disabled = true;
+  let placeholder = null;
+  if (body.url && !body.title && !state.popup) {
+    placeholder = el(
+      "li",
+      { class: "item pending" },
+      el("div", null, el("div", { class: "title" }, text.replace(/^https?:\/\/(www\.)?/, "")), el("div", { class: "meta" })),
+    );
+    $("#items").prepend(placeholder);
+    $("#empty").hidden = true;
+  }
+
+  try {
+    const item = await api("/api/items", { method: "POST", body });
+    main.value = "";
+    noteInput.value = "";
+    tagsInput.value = state.tag || "";
+    syncCapture();
+    refreshTags().catch(() => {});
+    if (state.popup) return popupDone(item);
+
+    const visible = (!state.tag || item.tags.includes(state.tag)) && !state.q;
+    if (visible) {
+      state.items.unshift(item);
+      if (state.sel >= 0) state.sel += 1;
+      renderItems();
+      flash(item.id);
+      toast("Saved");
+    } else {
+      placeholder?.remove();
+      toast(state.q ? "Saved. Clear the search to see it." : `Saved. It isn't tagged #${state.tag}, so it's hidden here.`);
+    }
+    main.focus();
+  } catch (err) {
+    placeholder?.remove();
+    renderEmpty();
+    if (err.status !== 401) toast(err.message, true);
+  } finally {
+    saveBtn.disabled = false;
+  }
+}
+
+// ---------- tag suggestions ----------
+
+function attachTagAssist(input) {
+  const box = el("div", { class: "suggest", role: "listbox" });
+  box.hidden = true;
+  input.parentElement.append(box);
+  let options = [];
+  let active = 0;
+  let navigated = false;
+
+  const token = () => {
+    const v = input.value;
+    const start = Math.max(v.lastIndexOf(","), v.lastIndexOf(" ")) + 1;
+    return { start, word: v.slice(start).replace(/^#+/, "").toLowerCase() };
+  };
+  const hide = () => { box.hidden = true; options = []; };
+  const draw = () => {
+    box.replaceChildren(
+      ...options.map((t, i) =>
+        el(
+          "button",
+          {
+            type: "button",
+            class: i === active ? "on" : null,
+            role: "option",
+            onmousedown: (e) => e.preventDefault(),
+            onclick: () => accept(i),
+          },
+          t.tag,
+          el("span", null, String(t.count)),
+        ),
+      ),
+    );
+    box.hidden = false;
+  };
+  const accept = (i) => {
+    const { start } = token();
+    input.value = input.value.slice(0, start) + options[i].tag + " ";
+    hide();
+    input.focus();
+  };
+  const update = () => {
+    const { word } = token();
+    navigated = false;
+    if (!word) return hide();
+    const chosen = new Set(parseTags(input.value));
+    options = state.tags.filter((t) => t.tag.startsWith(word) && t.tag !== word && !chosen.has(t.tag)).slice(0, 6);
+    if (!options.length) return hide();
+    active = 0;
+    draw();
+  };
+
+  input.addEventListener("input", update);
+  input.addEventListener("blur", () => setTimeout(hide, 120));
+  input.addEventListener("keydown", (e) => {
+    if (box.hidden) return;
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault();
+      active = (active + (e.key === "ArrowDown" ? 1 : options.length - 1)) % options.length;
+      navigated = true;
+      draw();
+    } else if (e.key === "Tab" || (e.key === "Enter" && navigated)) {
+      e.preventDefault();
+      accept(active);
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      e.stopPropagation();
+      hide();
+    }
+  });
+}
+
+// ---------- ask (agent) ----------
+
+function setMode(mode) {
+  state.mode = mode;
+  document.querySelectorAll("#modes button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.mode === mode)));
+  const search = $("#search");
+  search.placeholder = mode === "ask" ? "Ask about your stash…" : "Search";
+  if (mode === "ask") {
+    if (state.q) setFilter({ q: "" });
+    search.value = "";
+  } else {
+    $("#answer").hidden = true;
+    search.value = state.q;
+  }
+  search.focus();
+}
+
+function inlineMarkdown(text) {
+  const frag = document.createDocumentFragment();
+  const re = /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)|(https?:\/\/[^\s)<>\]]+)|\*\*([^*]+)\*\*/g;
+  let last = 0;
+  for (const m of text.matchAll(re)) {
+    frag.append(text.slice(last, m.index));
+    if (m[1]) frag.append(el("a", { href: m[2], target: "_blank", rel: "noopener noreferrer" }, m[1]));
+    else if (m[3]) frag.append(el("a", { href: m[3], target: "_blank", rel: "noopener noreferrer" }, m[3].replace(/^https?:\/\/(www\.)?/, "")));
+    else frag.append(el("strong", null, m[4]));
+    last = m.index + m[0].length;
+  }
+  frag.append(text.slice(last));
+  return frag;
+}
+
+function renderAnswer(text) {
+  const frag = document.createDocumentFragment();
+  const bullet = /^\s*(?:[-*•]|\d+[.)])\s+/;
+  let list = null;
+  let para = [];
+  const flushPara = () => {
+    if (para.length) frag.append(el("p", null, inlineMarkdown(para.join(" "))));
+    para = [];
+  };
+  for (const line of text.trim().split("\n")) {
+    if (bullet.test(line)) {
+      flushPara();
+      if (!list) { list = el("ul"); frag.append(list); }
+      list.append(el("li", null, inlineMarkdown(line.replace(bullet, ""))));
+    } else if (!line.trim()) {
+      flushPara();
+      list = null;
+    } else {
+      list = null;
+      para.push(line.trim());
+    }
+  }
+  flushPara();
+  return frag;
+}
+
+let askController = null;
+async function ask(question) {
+  if (!state.agentUrl || !question) return;
+  askController?.abort();
+  const controller = (askController = new AbortController());
+  const panel = $("#answer");
+  const body = el("div", { class: "body" }, el("p", { class: "thinking" }, "Thinking…"));
+  panel.replaceChildren(
+    el("button", { class: "close", type: "button", "aria-label": "Close answer", onclick: () => { controller.abort(); panel.hidden = true; } }, "×"),
+    el("p", { class: "q" }, question),
+    body,
+  );
+  panel.hidden = false;
+  const started = Date.now();
+  const tick = setInterval(() => {
+    const p = $(".thinking", body);
+    if (p) p.textContent = `Thinking… ${Math.round((Date.now() - started) / 1000)}s`;
+  }, 1000);
+  try {
+    const res = await fetch(state.agentUrl.replace(/\/+$/, "") + "/ask", {
+      method: "POST",
+      headers: { authorization: `Bearer ${state.key}`, "content-type": "application/json" },
+      body: JSON.stringify({ question }),
+      signal: controller.signal,
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || `The agent answered with HTTP ${res.status}.`);
+    body.replaceChildren(renderAnswer(data.answer || "The agent didn't return an answer."));
+    if (data.tools?.length) body.append(el("div", { class: "tools" }, `Looked at: ${[...new Set(data.tools)].join(", ")}`));
+  } catch (e) {
+    if (e.name === "AbortError") return;
+    body.replaceChildren(el("p", { class: "error" }, e.message.startsWith("The agent") ? e.message : "Couldn't reach the agent. Is it deployed, and does its CORS setting allow this origin?"));
+  } finally {
+    clearInterval(tick);
+  }
+}
+
+// ---------- dialogs ----------
+
+function openBookmarklet() {
+  const origin = location.origin;
+  const code =
+    "javascript:(()=>{window.open('" + origin +
+    "/?save='+encodeURIComponent(location.href)+'&title='+encodeURIComponent(document.title),'stash','width=620,height=330')})()";
+  $("#bm-link").setAttribute("href", code);
+  $("#bm-dialog").showModal();
+}
+
+// ---------- popup (bookmarklet) mode ----------
+
+function startPopup(params) {
+  const url = params.get("save");
+  state.popup = { url, title: params.get("title") || "" };
+  document.body.classList.add("popup");
+  const main = $("#cap-main");
+  main.value = url;
+  syncCapture();
+  $("#cap-note").placeholder = "Add a note (optional)";
+  const heading = $("#popup-title");
+  heading.textContent = state.popup.title || url;
+  heading.hidden = false;
+  requestAnimationFrame(() => $("#cap-tags").focus());
+}
+
+function popupDone(item) {
+  $("#capture").hidden = true;
+  $("#popup-title").hidden = true;
+  const msg = $("#saved-msg");
+  msg.replaceChildren("Saved to your stash.", el("span", null, item.title || item.url));
+  msg.hidden = false;
+  if (window.opener) setTimeout(() => window.close(), 900);
+  else setTimeout(() => { location.href = "/"; }, 1400);
+}
+
+// ---------- lock ----------
+
+function showLock(message = "") {
+  storageSet(KEY_STORAGE, null);
+  state.key = null;
+  $("#app").hidden = true;
+  $("#lock").hidden = false;
+  $("#lock-err").textContent = message;
+  $("#lock-key").value = "";
+  $("#lock-key").focus();
+}
+
+async function unlock(e) {
+  e.preventDefault();
+  const key = $("#lock-key").value.trim();
+  if (!key) return;
+  state.key = key;
+  $("#lock-err").textContent = "";
+  try {
+    await refreshTags();
+  } catch (err) {
+    if (err.status !== 401) $("#lock-err").textContent = err.message;
+    return;
+  }
+  storageSet(KEY_STORAGE, key);
+  start();
+}
+
+// ---------- keyboard ----------
+
+let pendingX = 0;
+function onKey(e) {
+  if (e.defaultPrevented || e.altKey) return;
+  if ($("dialog[open]")) return;
+  const typing = e.target.closest?.("input, textarea, select, [contenteditable]");
+  if (typing) {
+    if (e.key === "Escape" && !state.editing) e.target.blur();
+    return;
+  }
+  if (e.metaKey || e.ctrlKey) return;
+  const k = e.key;
+  if ((k === "Enter" || k === " ") && e.target.closest?.("a, button")) return;
+  if (k !== "x") pendingX = 0;
+  switch (k) {
+    case "/": e.preventDefault(); $("#search").focus(); $("#search").select(); break;
+    case "n": case "c": e.preventDefault(); $("#cap-main").focus(); break;
+    case "j": e.preventDefault(); moveSelection(1); break;
+    case "k": e.preventDefault(); moveSelection(-1); break;
+    case "o": case "Enter": if (state.sel >= 0) { e.preventDefault(); openSelected(); } break;
+    case "e": if (state.sel >= 0) { e.preventDefault(); startEdit(state.items[state.sel].id); } break;
+    case "x": {
+      const item = state.items[state.sel];
+      if (!item) break;
+      e.preventDefault();
+      requestDelete(item.id);
+      break;
+    }
+    case "?": e.preventDefault(); $("#keys-dialog").showModal(); break;
+    case "Escape":
+      if (state.armed) { state.armed = null; renderItems(); }
+      else if (state.sel >= 0) { state.sel = -1; markSelection(); }
+      else if (!$("#answer").hidden) $("#answer").hidden = true;
+      else if (state.tag || state.q) setFilter({ tag: null, q: "" }, true);
+      break;
+  }
+}
+
+// ---------- boot ----------
+
+let searchTimer;
+function wire() {
+  $("#lock-form").addEventListener("submit", unlock);
+  $("#capture").addEventListener("submit", submitCapture);
+  const main = $("#cap-main");
+  main.addEventListener("input", syncCapture);
+  main.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.shiftKey && !e.isComposing) submitCapture(e);
+    if (e.key === "Escape") main.blur();
+  });
+  main.addEventListener("paste", () => setTimeout(() => {
+    if (captureKind() === "link") $("#cap-tags").focus();
+  }));
+  const note = $("#cap-note");
+  note.addEventListener("input", () => autosize(note));
+  note.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.shiftKey && !e.isComposing) submitCapture(e);
+  });
+  $("#cap-tags").addEventListener("focus", (e) => {
+    if (!e.target.value && state.tag) e.target.value = state.tag + " ";
+  });
+  attachTagAssist($("#cap-tags"));
+
+  const search = $("#search");
+  search.addEventListener("input", () => {
+    if (state.mode !== "search") return;
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => setFilter({ q: search.value.trim() }), 220);
+  });
+  search.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && state.mode === "ask") { e.preventDefault(); ask(search.value.trim()); }
+    if (e.key === "Escape") {
+      if (search.value) { search.value = ""; if (state.mode === "search") setFilter({ q: "" }); }
+      else search.blur();
+    }
+    if (e.key === "ArrowDown" && state.mode === "search") { search.blur(); moveSelection(1); e.preventDefault(); }
+  });
+  $("#modes").addEventListener("click", (e) => {
+    const b = e.target.closest("button[data-mode]");
+    if (b) setMode(b.dataset.mode);
+  });
+
+  $("#home").addEventListener("click", (e) => {
+    e.preventDefault();
+    if (state.mode === "ask") setMode("search");
+    setFilter({ tag: null, q: "" }, true);
+    window.scrollTo({ top: 0 });
+  });
+  $("#open-keys").addEventListener("click", () => $("#keys-dialog").showModal());
+  $("#open-bm").addEventListener("click", openBookmarklet);
+  $("#bm-link").addEventListener("click", (e) => { e.preventDefault(); toast("Drag it to your bookmarks bar instead of clicking."); });
+  $("#lock-btn").addEventListener("click", () => showLock());
+  document.querySelectorAll("dialog [data-close]").forEach((b) => b.addEventListener("click", () => b.closest("dialog").close()));
+  document.querySelectorAll("dialog").forEach((d) => d.addEventListener("click", (e) => { if (e.target === d) d.close(); }));
+  document.addEventListener("keydown", onKey);
+  window.addEventListener("popstate", () => {
+    readUrl();
+    $("#search").value = state.mode === "search" ? state.q : "";
+    renderRail();
+    load();
+  });
+
+  window.addEventListener("resize", () => { autosize(main); autosize(note); });
+
+  new IntersectionObserver((entries) => {
+    if (entries.some((en) => en.isIntersecting) && state.cursor && !state.loading) load({ append: true });
+  }, { rootMargin: "400px" }).observe($("#more"));
+}
+
+async function start() {
+  $("#lock").hidden = true;
+  $("#app").hidden = false;
+  const params = new URLSearchParams(location.search);
+  if (params.has("save")) {
+    startPopup(params);
+    refreshTags().catch(() => {});
+    return;
+  }
+  readUrl();
+  $("#search").value = state.q;
+  syncCapture();
+  try {
+    const [config] = await Promise.all([api("/api/config"), refreshTags()]);
+    state.agentUrl = safeHref(config.agent_url);
+    $("#modes").hidden = !state.agentUrl;
+  } catch (e) {
+    if (e.status === 401) return;
+    toast(e.message, true);
+  }
+  load();
+}
+
+wire();
+state.key = storageGet(KEY_STORAGE);
+if (state.key) start();
+else showLock();
+</script>
+</body>
+</html>
