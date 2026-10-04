@@ -5,3 +5,6 @@ __pycache__/
 .aws-sam/
 # `sam deploy --guided` writes your parameter values (including ApiKey and GoogleApiKey) here.
 samconfig.toml
+
+# Local copy of the deployed API key
+.secrets/
