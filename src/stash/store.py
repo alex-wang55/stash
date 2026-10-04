@@ -232,7 +232,7 @@ class Store:
         )
         return _load(resp["Item"]) if "Item" in resp else None
 
-    def list(
+    def list_items(
         self,
         *,
         tag: str | None = None,

@@ -142,7 +142,7 @@ def item_id_from(match: re.Match) -> str:
 
 def list_items(event, params, _match):
     tag = model.normalize_tag(params.get("tag", "")) or None
-    items, cursor = store().list(
+    items, cursor = store().list_items(
         tag=tag,
         query=params.get("q", "")[:200],
         since_ms=model.parse_time_bound(params.get("since"), end_of_day=False),

@@ -60,8 +60,10 @@ Two caveats:
 
 You don't need an AWS account for this. The dev server runs the real Lambda handler, with DynamoDB mocked in memory by moto.
 
+Use **Python 3.13**, the same version as the Lambda runtime. Python 3.14 evaluates type annotations lazily, which can hide errors that only crash at import time on Lambda.
+
 ```bash
-python -m venv .venv
+python3.13 -m venv .venv
 .venv/Scripts/activate        # macOS/Linux: source .venv/bin/activate
 pip install -r requirements-dev.txt
 python scripts/dev.py --seed
