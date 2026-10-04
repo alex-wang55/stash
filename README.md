@@ -67,7 +67,7 @@ Two caveats:
 
 ## Run it locally
 
-You don't need an AWS account for this. The dev server runs the real Lambda handler, with DynamoDB mocked in memory by moto.
+You don't need an AWS account for this. The dev server runs the real Lambda handler, with DynamoDB mocked by moto and saved to a file on your computer.
 
 Use **Python 3.13**, the same version as the Lambda runtime. Python 3.14 evaluates type annotations lazily, which can hide errors that only crash at import time on Lambda.
 
@@ -78,7 +78,14 @@ pip install -r requirements-dev.txt
 python scripts/dev.py --seed
 ```
 
-Open http://localhost:8787 and unlock it with the dev key the server prints. Data lives only as long as the process.
+Open http://localhost:8787 and unlock it with the dev key the server prints.
+
+**Your local stash is personal and is never committed.**
+- **First run:** the server creates `.local-data/stash.json` in your copy of the project. `--seed` fills that new file with 10 example links (they aren't anyone's real data).
+- **Later runs:** it loads that same file. Every change is saved straight away.
+- **Never pushed:** `.local-data/` is git-ignored, so everyone who clones the repo gets their own separate database.
+- **Throwaway mode:** use `--memory` to start from scratch with nothing saved.
+- **Deployed copies are separate too:** each deployed copy of stash gets its own DynamoDB table in whichever AWS account deployed it.
 
 Run the tests:
 

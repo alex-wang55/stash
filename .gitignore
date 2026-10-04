@@ -9,5 +9,8 @@ samconfig.toml
 # Local copy of the deployed API key
 .secrets/
 
+# Each person's own local database from scripts/dev.py
+.local-data/
+
 # Machine-specific preview server config (points at a local virtualenv)
 .claude/launch.json

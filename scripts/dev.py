@@ -1,4 +1,4 @@
-"""Run stash locally: the real Lambda handler behind a tiny HTTP server, DynamoDB mocked in memory."""
+"""Run stash locally: the real Lambda handler behind a tiny HTTP server, with a personal local database."""
 
 import argparse
 import json
@@ -14,6 +14,8 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
 DEV_KEY = "dev-key-not-secret-0000"
+DEFAULT_DATA_FILE = ROOT / ".local-data" / "stash.json"
+WRITE_METHODS = {"POST", "PATCH", "PUT", "DELETE"}
 
 os.environ.setdefault("AWS_DEFAULT_REGION", "us-east-1")
 os.environ.setdefault("AWS_ACCESS_KEY_ID", "dev")
@@ -57,6 +59,29 @@ def create_table(client) -> None:
     )
 
 
+def save_data(client, path: Path) -> int:
+    """Write every table row to `path` (DynamoDB JSON). Atomic, so a crash mid-save can't corrupt it."""
+    rows, start = [], None
+    while True:
+        resp = client.scan(TableName=os.environ["STASH_TABLE"], **({"ExclusiveStartKey": start} if start else {}))
+        rows += resp["Items"]
+        start = resp.get("LastEvaluatedKey")
+        if not start:
+            break
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_name(path.name + ".tmp")
+    tmp.write_text(json.dumps({"format": "dynamodb-items-v1", "items": rows}, ensure_ascii=False, indent=1), encoding="utf-8")
+    os.replace(tmp, path)
+    return len(rows)
+
+
+def load_data(client, path: Path) -> int:
+    rows = json.loads(path.read_text(encoding="utf-8"))["items"]
+    for row in rows:
+        client.put_item(TableName=os.environ["STASH_TABLE"], Item=row)
+    return len(rows)
+
+
 def seed() -> None:
     from stash import app
 
@@ -75,6 +100,7 @@ def seed() -> None:
 _handler_lock = threading.Lock()
 _agent_lock = threading.Lock()
 _agent = None
+_data_file: Path | None = None
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -105,6 +131,8 @@ class Handler(BaseHTTPRequestHandler):
             with _handler_lock:
                 app._index_html = None  # pick up edits to index.html without a restart
                 resp = app.handler(event)
+                if _data_file and self.command in WRITE_METHODS and resp["statusCode"] < 400:
+                    save_data(app.store().db, _data_file)
         payload = (resp.get("body") or "").encode("utf-8")
         self.send_response(resp["statusCode"])
         for key, value in resp.get("headers", {}).items():
@@ -134,9 +162,17 @@ def enable_agent(port: int) -> None:
 
 
 def main() -> None:
+    global _data_file
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--port", type=int, default=8787)
-    parser.add_argument("--seed", action="store_true", help="start with sample items")
+    parser.add_argument("--seed", action="store_true", help="fill a brand-new database with sample items")
+    parser.add_argument(
+        "--data-file",
+        type=Path,
+        default=DEFAULT_DATA_FILE,
+        help="where your local stash is saved (default: .local-data/stash.json, git-ignored)",
+    )
+    parser.add_argument("--memory", action="store_true", help="save nothing; start from scratch every run")
     parser.add_argument(
         "--agent",
         action="store_true",
@@ -150,11 +186,31 @@ def main() -> None:
     if args.agent:
         enable_agent(args.port)
     with mock_aws():
-        create_table(boto3.client("dynamodb"))
-        if args.seed:
-            seed()
+        client = boto3.client("dynamodb")
+        create_table(client)
+        if args.memory:
+            if args.seed:
+                seed()
+            where = "in memory only; nothing is saved"
+        else:
+            path = args.data_file.resolve()
+            if path.exists():
+                try:
+                    rows = load_data(client, path)
+                except (ValueError, KeyError) as exc:
+                    sys.exit(f"Could not read {path} ({exc}). Move it aside to start a fresh database.")
+                where = f"loaded {rows} rows from {path}"
+                if args.seed:
+                    print("--seed ignored: your local database already has data", flush=True)
+            else:
+                if args.seed:
+                    seed()
+                save_data(client, path)
+                where = f"new database created at {path}"
+            _data_file = path
         server = ThreadingHTTPServer(("127.0.0.1", args.port), Handler)
         print(f"stash dev server on http://localhost:{args.port}  (API key: {os.environ['STASH_API_KEY']})", flush=True)
+        print(f"data: {where}", flush=True)
         try:
             server.serve_forever()
         except KeyboardInterrupt:
