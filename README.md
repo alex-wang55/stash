@@ -48,6 +48,7 @@ The optional add-on is an AI agent built with Google's Agent Development Kit (AD
 | Lambda Function URL | No charge beyond Lambda itself | Replaces API Gateway |
 | DynamoDB | 25 GB storage, 25 RCU + 25 WCU provisioned | 10 RCU / 10 WCU by default |
 | CloudWatch Logs | 5 GB ingestion | 14-day retention |
+| CloudWatch alarms + SNS email | 10 alarms, 1,000 emails per month | 2 alarms, only if you set `AlertEmail` |
 | Data transfer out | 100 GB per month | Pages and JSON sent to your browser (preview fetches are inbound, which is free) |
 
 Deliberate choices to stay free:
@@ -55,6 +56,7 @@ Deliberate choices to stay free:
 - **The table uses provisioned capacity, not on-demand,** because the free tier is measured in provisioned units. The 25-unit limit is shared by every table in the region, so the template defaults to 10 and lets you change it.
 - **There's no API Gateway, S3, CloudFront, NAT gateway or Secrets Manager.** The web app is served by the Lambda itself.
 - **There's an optional zero-spend alarm.** Pass `BudgetEmail` and AWS Budgets emails you the moment the account spends a cent.
+- **There are optional failure alerts.** Pass `AlertEmail` and you get an email when the function crashes or times out (Lambda `Errors`), or when it returns a 5xx response it caught itself (Function URL `Url5xxCount`). Lambda counts these two separately, so it takes two alarms to cover both. AWS first sends a confirmation email; alerts only arrive after you click its link.
 
 Two caveats:
 
